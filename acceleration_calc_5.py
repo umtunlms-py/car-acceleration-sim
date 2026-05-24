@@ -20,8 +20,13 @@ def simulate_run(mass, peak_torque, redline, class_choice, t_width, t_aspect, t_
 
     max_gears = len(GEAR_RATIOS)
     SHIFT_DELAY = 0.25                  
-    DRIVETRAIN_EFFICIENCY = 0.88        
-    effective_mass = mass * 1.04
+    
+    # --- UPDATED FINAL CONSTANTS ---
+    DRIVETRAIN_EFFICIENCY = 0.86        
+    ROTATIONAL_INERTIA_FACTOR = 1.06    
+    DRAG_COEFFICIENT = 0.32             
+    
+    effective_mass = mass * ROTATIONAL_INERTIA_FACTOR
     max_traction = 0.8 * mass * 9.81
     
     def get_torque(rpm):
@@ -66,11 +71,20 @@ def simulate_run(mass, peak_torque, redline, class_choice, t_width, t_aspect, t_
             raw_thrust = (engine_torque * GEAR_RATIOS[current_gear] * FINAL_DRIVE * DRIVETRAIN_EFFICIENCY) / tire_radius
             active_thrust = min(raw_thrust, max_traction)
 
-        drag = 0.5 * 1.225 * (velocity ** 2) * 0.30 * 2.2
+        # Environmental Resistance Calculations
+        drag = 0.5 * 1.225 * (velocity ** 2) * DRAG_COEFFICIENT * 2.2
         rolling_res = 0.015 * mass * 9.81
         
-        accel = max(0.0, (active_thrust - drag - rolling_res) / effective_mass)
+        # --- UPDATED: Allow negative acceleration for shift deceleration ---
+        net_force = active_thrust - drag - rolling_res
+        accel = net_force / effective_mass
+        
         velocity += accel * time_step
+        
+        # Prevent the car from rolling backward off the line
+        if velocity < 0.001:
+            velocity = 0.001 
+            
         time += time_step
         
         time_log.append(time)
@@ -82,6 +96,8 @@ def simulate_run(mass, peak_torque, redline, class_choice, t_width, t_aspect, t_
 
 
 # --- 2. INTERFACE DESIGN ---
+st.set_page_config(page_title="Vehicle 0-100 Simulator", layout="wide")
+
 st.title("🏁 Vehicle 0-100 km/h Simulator")
 st.markdown("Adjust specifications in the left sidebar, then click run.")
 
